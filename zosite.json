@@ -1,0 +1,19 @@
+{
+  "name": "prompt-gallery",
+  "local_port": 57998,
+  "entrypoint": "bun run dev",
+  "env": {
+    "VITE_ZO_SITE_DEMO_VARIANT": "blank"
+  },
+  "publish": {
+    "label": "prompt-gallery",
+    "type": "http",
+    "entrypoint": "bun run prod",
+    "published_port": 58155,
+    "env": {
+      "NODE_ENV": "production",
+      "ZO_CLIENT_IDENTITY_TOKEN": "none",
+      "VITE_ZO_SITE_DEMO_VARIANT": "blank"
+    }
+  }
+}
