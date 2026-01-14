@@ -13,6 +13,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Toaster, toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
 
 // Type definitions
 interface Prompt {
@@ -45,6 +47,8 @@ export default function PromptsDemo() {
     category: "",
     tags: [] as string[],
   });
+  const [newCategoryInput, setNewCategoryInput] = useState("");
+  const [newTagInput, setNewTagInput] = useState("");
 
   // Load prompts from API
   useEffect(() => {
@@ -178,8 +182,41 @@ export default function PromptsDemo() {
     document.body.style.overflow = 'unset';
   };
 
+  // Add new category
+  const handleAddCategory = () => {
+    if (newCategoryInput.trim() && !categories.includes(newCategoryInput.trim())) {
+      const newCat = newCategoryInput.trim();
+      setCategories(prev => [...prev, newCat].sort());
+      setEditForm(prev => ({...prev, category: newCat}));
+      setNewCategoryInput("");
+      toast.success(`Category "${newCat}" created`);
+    }
+  };
+
+  // Toggle tag in edit form
+  const toggleEditTag = (tag: string) => {
+    setEditForm(prev => ({
+      ...prev,
+      tags: prev.tags.includes(tag) ? prev.tags.filter(t => t !== tag) : [...prev.tags, tag]
+    }));
+  };
+
+  // Add new tag
+  const handleAddTag = () => {
+    if (newTagInput.trim() && !editForm.tags.includes(newTagInput.trim())) {
+      const newTag = newTagInput.trim();
+      setEditForm(prev => ({
+        ...prev,
+        tags: [...prev.tags, newTag].sort()
+      }));
+      setNewTagInput("");
+      toast.success(`Tag "${newTag}" added`);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-blue-100 selection:text-blue-900 dark:selection:bg-blue-900 dark:selection:text-blue-100">
+      <Toaster />
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <header className="mb-10 space-y-6">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -231,6 +268,16 @@ export default function PromptsDemo() {
                     </Badge>
                   );
                 })}
+                {selectedCategories.length > 0 && (
+                  <Button
+                    variant="link"
+                    size="sm"
+                    onClick={() => setSelectedCategories([])}
+                    className="h-6 px-2 text-xs text-slate-500 hover:text-indigo-600"
+                  >
+                    Clear categories
+                  </Button>
+                )}
               </div>
             )}
 
@@ -436,63 +483,165 @@ export default function PromptsDemo() {
               <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8 custom-scrollbar">
                 {/* Meta Panel */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-slate-50/80 dark:bg-slate-950/50 rounded-2xl p-6 border border-slate-100 dark:border-slate-800">
+                  {/* Left Column: Description */}
                   <div className="space-y-4">
                     <div>
                       <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2 block flex items-center gap-2">
                         Description
                       </label>
                       {isEditing ? (
-                        <textarea
-                          value={editForm.description}
-                          onChange={(e) => setEditForm({...editForm, description: e.target.value})}
-                          className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none min-h-[100px] shadow-sm"
-                        />
+                        <div className="flex flex-col h-full gap-4">
+                          <div className="flex-1 min-h-[400px]">
+                            <label className="text-sm font-medium mb-1.5 block">Description</label>
+                            <Textarea
+                              value={editForm.description}
+                              onChange={(e) =>
+                                setEditForm({ ...editForm, description: e.target.value })
+                              }
+                              className="h-full min-h-[400px] resize-none font-mono text-sm leading-relaxed"
+                              placeholder="Enter a description..."
+                            />
+                          </div>
+                        </div>
                       ) : (
-                        <p className="text-slate-700 dark:text-slate-300 leading-relaxed text-sm">
+                        <p className="text-slate-700 dark:text-slate-300 leading-relaxed text-sm whitespace-pre-wrap">
                           {selectedPrompt.description || "No description available."}
                         </p>
                       )}
                     </div>
                   </div>
 
+                  {/* Right Column: Category & Tags */}
                   <div className="space-y-6">
                     <div>
                       <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2 block flex items-center gap-2">
-                        <Layers className="h-3 w-3" /> Category
+                        Category
                       </label>
                       {isEditing ? (
-                         <Select 
-                            value={editForm.category} 
-                            onValueChange={(v) => setEditForm({...editForm, category: v})}
+                        <div className="space-y-3">
+                          <Select
+                            value={editForm.category}
+                            onValueChange={(val) => setEditForm({...editForm, category: val})}
                           >
                             <SelectTrigger className="w-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-                              <SelectValue />
+                              <SelectValue placeholder="Select category" />
                             </SelectTrigger>
-                            <SelectContent>
-                              {categories.map(c => (
-                                <SelectItem key={c} value={c}>{c}</SelectItem>
+                            <SelectContent className="z-[9999]">
+                              {categories.map((c) => (
+                                <SelectItem key={c} value={c}>
+                                  {c}
+                                </SelectItem>
                               ))}
-                              <SelectItem value="New Category">+ Add New...</SelectItem>
+                              {newCategoryInput && !categories.includes(newCategoryInput) && (
+                                <SelectItem value={newCategoryInput}>{newCategoryInput}</SelectItem>
+                              )}
                             </SelectContent>
                           </Select>
+                          
+                          <div className="flex gap-2">
+                            <Input 
+                              placeholder="New category name..." 
+                              value={newCategoryInput}
+                              onChange={(e) => setNewCategoryInput(e.target.value)}
+                              className="h-9 bg-white dark:bg-slate-900 text-sm"
+                            />
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={handleAddCategory}
+                              disabled={!newCategoryInput.trim()}
+                              className="shrink-0"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
                       ) : (
-                        <Badge variant="outline" className="px-3 py-1 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium">
+                        <Badge variant="outline" className="text-sm font-medium py-1 px-3 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300">
                           {selectedPrompt.category || "Uncategorized"}
                         </Badge>
                       )}
                     </div>
-                    
+
                     <div>
                       <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2 block flex items-center gap-2">
-                        <Tag className="h-3 w-3" /> Tags
+                        Tags
                       </label>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedPrompt.tags.map((tag) => (
-                          <Badge key={tag} variant="secondary" className="px-2.5 py-1 rounded-lg bg-slate-200/50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-0 font-medium text-xs">
-                            {tag}
-                          </Badge>
-                        ))}
-                        {selectedPrompt.tags.length === 0 && <span className="text-xs text-slate-400 italic">No tags</span>}
+                      <div className="flex flex-col gap-3">
+                        {isEditing ? (
+                          <>
+                            {/* Selected Tags */}
+                            <div className="flex flex-wrap gap-2 mb-2">
+                              {editForm.tags.map((tag) => (
+                                <Badge key={tag} variant="secondary" className="px-2 py-1 gap-1 pr-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                                  {tag}
+                                  <button
+                                    onClick={() => toggleEditTag(tag)}
+                                    className="hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full p-0.5"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </Badge>
+                              ))}
+                            </div>
+
+                            {/* Add New Tag */}
+                            <div className="flex items-center gap-2">
+                              <Input
+                                placeholder="Add new tag..."
+                                value={newTagInput}
+                                onChange={(e) => setNewTagInput(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleAddTag();
+                                  }
+                                }}
+                                className="h-8 text-xs flex-1 bg-white dark:bg-slate-900"
+                              />
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={handleAddTag}
+                                disabled={!newTagInput.trim()}
+                                className="h-8 w-8 p-0"
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </div>
+
+                            {/* Available Tags Selection */}
+                            <div className="mt-2">
+                              <label className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-2 block">
+                                Add Existing Tags
+                              </label>
+                              <div className="flex flex-wrap gap-1.5 p-3 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 max-h-32 overflow-y-auto custom-scrollbar">
+                                {allTags.filter(t => !editForm.tags.includes(t)).map((tag) => (
+                                  <Badge 
+                                    key={tag} 
+                                    variant="outline" 
+                                    className="cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-800 hover:text-blue-600 dark:hover:text-blue-400 transition-colors px-2 py-0.5 text-[10px]"
+                                    onClick={() => toggleEditTag(tag)}
+                                  >
+                                    + {tag}
+                                  </Badge>
+                                ))}
+                                {allTags.filter(t => !editForm.tags.includes(t)).length === 0 && (
+                                  <span className="text-xs text-slate-400 italic p-1">All tags selected</span>
+                                )}
+                              </div>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex flex-wrap gap-2">
+                            {selectedPrompt.tags.map((tag) => (
+                              <Badge key={tag} variant="secondary" className="px-2.5 py-1 rounded-lg bg-slate-200/50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-0 font-medium text-xs">
+                                {tag}
+                              </Badge>
+                            ))}
+                            {selectedPrompt.tags.length === 0 && <span className="text-xs text-slate-400 italic">No tags</span>}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -531,6 +680,16 @@ export default function PromptsDemo() {
     </main>
   );
 }
+
+
+
+
+
+
+
+
+
+
 
 
 
