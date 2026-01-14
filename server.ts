@@ -4,6 +4,7 @@ import { createServer as createViteServer } from "vite";
 import config from "./zosite.json";
 import { Hono } from "hono";
 import { getRecentRegistrations, createRegistration } from "./backend-lib/db";
+import matter from "gray-matter";
 
 type Mode = "development" | "production";
 const app = new Hono();
@@ -15,6 +16,127 @@ const mode: Mode =
  * Add any API routes here.
  */
 app.get("/api/hello-zo", (c) => c.json({ msg: "Hello from Zo" }));
+
+app.get("/api/prompts", async (c) => {
+  const promptsDir = "/home/workspace/Prompts";
+  console.log("Scanning prompts directory:", promptsDir);
+  
+  try {
+    const glob = new Bun.Glob("*.prompt.md");
+    const filenames = [];
+    for await (const file of glob.scan({ cwd: promptsDir, onlyFiles: true })) {
+      filenames.push(file);
+    }
+    
+    console.log("Found filenames:", filenames.length);
+
+    const promises = filenames.map(async (filename) => {
+      const abs = `${promptsDir}/${filename}`;
+      const file = Bun.file(abs);
+      const content = await file.text();
+      
+      const { data } = matter(content);
+      
+      const title = data.title || filename.replace(".prompt.md", "");
+      const description = data.description || "";
+      const tags = data.tags || [];
+      const tool = data.tool || false;
+      const category = data.category || "Uncategorized"; // New field
+
+      // Auto-emoji logic (keep existing)
+      const emojis = data.emojis || [];
+      if (emojis.length === 0) {
+        // ... existing emoji logic ...
+        // Re-implement emoji logic here or extract it
+         const t = [
+          title.toLowerCase(),
+          description.toLowerCase(),
+          ...tags.map((x: string) => x.toLowerCase()),
+        ];
+
+        const add = (e: string) => {
+          if (emojis.length < 3 && !emojis.includes(e)) emojis.push(e);
+        };
+        
+        if (t.some((x) => ["write", "edit", "text", "blog"].includes(x))) add("📝");
+        if (t.some((x) => ["code", "dev", "script", "function"].includes(x))) add("💻");
+        if (t.some((x) => ["image", "photo", "picture", "draw"].includes(x))) add("🎨");
+        if (t.some((x) => ["email", "message", "contact"].includes(x))) add("📧");
+        if (t.some((x) => ["data", "csv", "json", "analyze"].includes(x))) add("📊");
+        if (t.some((x) => ["web", "site", "html", "css"].includes(x))) add("🌐");
+        if (t.some((x) => ["audio", "video", "media"].includes(x))) add("🎬");
+        if (t.some((x) => ["chat", "conversation", "ai", "bot"].includes(x))) add("🤖");
+        if (t.some((x) => ["research", "news"].includes(x))) add("🔎");
+        if (t.some((x) => ["pdf", "docx", "pptx", "xlsx"].includes(x))) add("📄");
+        if (t.some((x) => ["setup", "install", "config"].includes(x))) add("🛠️");
+        if (t.some((x) => ["productivity", "planning"].includes(x))) add("🧠");
+      }
+
+      return {
+        path: abs,
+        filename,
+        title,
+        description,
+        tags,
+        category,
+        emojis,
+        tool,
+      };
+    });
+
+    const prompts = await Promise.all(promises);
+    console.log("Processed prompts:", prompts.length);
+    return c.json({ prompts });
+  } catch (err) {
+    console.error("Error reading prompts:", err);
+    return c.json(
+      { error: err instanceof Error ? err.message : "Failed to read prompts" },
+      500
+    );
+  }
+});
+
+app.post("/api/prompts/update", async (c) => {
+  try {
+    const { path, tags, category, description } = await c.req.json();
+    
+    if (!path || !await Bun.file(path).exists()) {
+      return c.json({ error: "File not found" }, 404);
+    }
+
+    const file = Bun.file(path);
+    const content = await file.text();
+    const parsed = matter(content);
+
+    // Update frontmatter
+    if (tags) parsed.data.tags = tags;
+    if (category) parsed.data.category = category;
+    if (description) parsed.data.description = description;
+
+    // Stringify back to file
+    const newContent = matter.stringify(parsed.content, parsed.data);
+    await Bun.write(path, newContent);
+
+    return c.json({ success: true });
+  } catch (err) {
+     console.error("Error updating prompt:", err);
+     return c.json({ error: "Failed to update prompt" }, 500);
+  }
+});
+
+app.get("/api/prompts/raw", async (c) => {
+  const path = c.req.query("path") || "";
+  if (!path.startsWith("/home/workspace/Prompts/") || !path.endsWith(".prompt.md")) {
+    return c.json({ error: "Invalid path" }, 400);
+  }
+  try {
+    const raw = await Bun.file(path).text();
+    return c.json({ raw });
+  } catch (e) {
+    return c.json({ error: (e as Error).message || "Failed to read file" }, 500);
+  }
+});
+
 
 // Event registration endpoints (namespaced under _zo to avoid conflicts)
 app.get("/api/_zo/demo/registrations", (c) => {
@@ -144,3 +266,156 @@ async function configureDevelopment(app: Hono): Promise<ViteDevServer> {
 
   return vite;
 }
+
+function parsePromptFrontmatter(raw: string): {
+  title?: string;
+  description?: string;
+  tags?: string[];
+  emoji?: string | string[];
+  tool?: boolean;
+} {
+  const fm = extractFrontmatter(raw);
+  if (!fm) return {};
+
+  const title = parseYamlScalarString(fm, "title");
+  const tool = parseYamlBool(fm, "tool");
+  const emoji = parseYamlEmoji(fm);
+  const tags = parseYamlStringList(fm, "tags");
+  const description = parseYamlMultilineString(fm, "description");
+
+  return {
+    title,
+    description,
+    tags,
+    emoji,
+    tool,
+  };
+}
+
+function extractFrontmatter(raw: string): string | null {
+  const s = raw.replace(/\r\n/g, "\n");
+  if (!s.startsWith("---\n")) return null;
+  const end = s.indexOf("\n---\n", 4);
+  if (end === -1) return null;
+  return s.slice(4, end + 1);
+}
+
+function parseYamlScalarString(fm: string, key: string): string | undefined {
+  const re = new RegExp(`^${escapeRegExp(key)}:\\s*(.+?)\\s*$`, "m");
+  const m = fm.match(re);
+  if (!m) return undefined;
+  return stripYamlQuotes(m[1]);
+}
+
+function parseYamlBool(fm: string, key: string): boolean | undefined {
+  const v = parseYamlScalarString(fm, key);
+  if (v === undefined) return undefined;
+  if (v.toLowerCase() === "true") return true;
+  if (v.toLowerCase() === "false") return false;
+  return undefined;
+}
+
+function parseYamlStringList(fm: string, key: string): string[] | undefined {
+  const reBlock = new RegExp(`^${escapeRegExp(key)}:\\s*\\n((?:\\s*-\\s*.*\\n?)*)`, "m");
+  const m = fm.match(reBlock);
+  if (!m) return undefined;
+  const block = m[1] || "";
+  const items = block
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.startsWith("-"))
+    .map((l) => l.replace(/^ -\s*|^-\s*/, "").trim())
+    .map(stripYamlQuotes)
+    .filter(Boolean);
+  return items;
+}
+
+function parseYamlMultilineString(fm: string, key: string): string | undefined {
+  const re = new RegExp(`^${escapeRegExp(key)}:\\s*\\|\\s*\\n([\\s\\S]*?)(?=\\n^[A-Za-z0-9_-]+:|\\n?$)`, "m");
+  const m = fm.match(re);
+  if (!m) return undefined;
+  const body = m[1] || "";
+  return body
+    .replace(/\n+$/, "")
+    .split("\n")
+    .map((l) => l.replace(/^\s{2}/, ""))
+    .join("\n")
+    .trim();
+}
+
+function parseYamlEmoji(fm: string): string | string[] | undefined {
+  const scalar = parseYamlScalarString(fm, "emoji");
+  if (scalar !== undefined) return scalar;
+
+  const list = parseYamlStringList(fm, "emoji");
+  if (list !== undefined) return list;
+
+  return undefined;
+}
+
+function stripYamlQuotes(s: string): string {
+  const t = s.trim();
+  if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
+    return t.slice(1, -1);
+  }
+  return t;
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&");
+}
+
+function titleFromFilename(filename: string): string {
+  const base = filename.replace(/\\.prompt\\.md$/i, "");
+  return base
+    .split(/[-_]+/g)
+    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+    .join(" ");
+}
+
+function normalizeEmojis(frontmatter: { emoji?: string | string[] }): string[] {
+  const anyEmoji = frontmatter.emoji;
+  if (!anyEmoji) return [];
+  if (Array.isArray(anyEmoji)) {
+    return anyEmoji
+      .map((e) => String(e || "").trim())
+      .flatMap((e) => e.split(/\\s+/g))
+      .map((e) => e.trim())
+      .filter(Boolean)
+      .slice(0, 3);
+  }
+  return String(anyEmoji)
+    .trim()
+    .split(/\\s+/g)
+    .map((e) => e.trim())
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
+function fallbackEmojisFromTags(tags: string[]): string[] {
+  const t = tags.map((x) => x.toLowerCase());
+  const pick: string[] = [];
+
+  const add = (e: string) => {
+    if (pick.length >= 3) return;
+    if (!pick.includes(e)) pick.push(e);
+  };
+
+  if (t.some((x) => ["email", "gmail"].includes(x))) add("✉️");
+  if (t.some((x) => ["calendar", "schedule"].includes(x))) add("📅");
+  if (t.some((x) => ["automation", "agent", "workflow"].includes(x))) add("🤖");
+  if (t.some((x) => ["research", "news"].includes(x))) add("🔎");
+  if (t.some((x) => ["pdf", "docx", "pptx", "xlsx"].includes(x))) add("📄");
+  if (t.some((x) => ["image", "video"].includes(x))) add("🖼️");
+  if (t.some((x) => ["setup", "install", "config"].includes(x))) add("🛠️");
+  if (t.some((x) => ["productivity", "planning"].includes(x))) add("🧠");
+
+  return pick;
+}
+
+
+
+
+
+
+
