@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Toaster, toast } from "sonner";
+import EmojiPicker from "emoji-picker-react";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -94,6 +95,7 @@ export default function PromptsDemo() {
     description?: string;
     category?: string;
     tags?: string[];
+    emojis?: string[];
   }
 
 
@@ -108,6 +110,8 @@ export default function PromptsDemo() {
   const [editForm, setEditForm] = useState<EditForm | null>(null);
   const [newTagInput, setNewTagInput] = useState("");
   const [newCategoryInput, setNewCategoryInput] = useState("");
+  // Emoji picker state
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   // Load prompts from API
   useEffect(() => {
@@ -218,7 +222,8 @@ export default function PromptsDemo() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           path: selectedPrompt.path,
-          ...editForm
+          ...editForm,
+          emojis: editForm?.emojis
         }),
       });
       if (response.ok) {
@@ -799,31 +804,7 @@ export default function PromptsDemo() {
                   </div>
                 </div>
 
-                {/* Prompt Source Content */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-4">
-                     <Separator className="flex-1 bg-slate-200 dark:bg-slate-800" />
-                     <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">
-                       Source Code
-                     </span>
-                     <Separator className="flex-1 bg-slate-200 dark:bg-slate-800" />
-                  </div>
-                  
-                  <div className="relative group">
-                    {contentLoading ? (
-                      <div className="flex flex-col items-center justify-center py-16 space-y-3 bg-slate-50/50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
-                        <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
-                        <span className="text-sm font-medium text-slate-400">Loading content...</span>
-                      </div>
-                    ) : (
-                      <div className="bg-white dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-                        <div className="prose prose-sm md:prose-base max-w-none p-6 md:p-8 dark:prose-invert prose-pre:bg-slate-50 dark:prose-pre:bg-slate-900 prose-pre:border prose-pre:border-slate-100 dark:prose-pre:border-slate-800 prose-headings:font-bold prose-a:text-blue-600 dark:prose-a:text-blue-400">
-                          <MarkdownContent content={promptContent} />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
+
               </div>
             </div>
           </div>
@@ -1119,6 +1100,9 @@ export default function PromptsDemo() {
     </main>
   );
 }
+
+
+
 
 
 

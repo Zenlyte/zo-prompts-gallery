@@ -98,9 +98,9 @@ app.get("/api/prompts", async (c) => {
 
 app.post("/api/prompts/update", async (c) => {
   try {
-    const { path, tags, category, description } = await c.req.json();
+    const { path, tags, category, description, emojis } = await c.req.json();
     
-    if (!path || !await Bun.file(path).exists()) {
+    if (!path || !(await Bun.file(path).exists())) {
       return c.json({ error: "File not found" }, 404);
     }
 
@@ -112,6 +112,7 @@ app.post("/api/prompts/update", async (c) => {
     if (tags) parsed.data.tags = tags;
     if (category) parsed.data.category = category;
     if (description) parsed.data.description = description;
+    if (emojis) parsed.data.emojis = emojis;
 
     // Stringify back to file
     const newContent = matter.stringify(parsed.content, parsed.data);
@@ -130,8 +131,9 @@ app.get("/api/prompts/raw", async (c) => {
     return c.json({ error: "Invalid path" }, 400);
   }
   try {
-    const raw = await Bun.file(path).text();
-    return c.json({ raw });
+    const content = await Bun.file(path).text();
+    const parsed = matter(content);
+    return c.json({ raw: parsed.content });
   } catch (e) {
     return c.json({ error: (e as Error).message || "Failed to read file" }, 500);
   }
@@ -642,6 +644,9 @@ function fallbackEmojisFromTags(tags: string[]): string[] {
 
   return pick;
 }
+
+
+
 
 
 
