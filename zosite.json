@@ -3,7 +3,7 @@
   "local_port": 57998,
   "entrypoint": "bun run dev",
   "env": {
-    "VITE_ZO_SITE_DEMO_VARIANT": "blank"
+    "VITE_ZO_SITE_DEMO_VARIANT": "prompts"
   },
   "publish": {
     "label": "prompt-gallery",
@@ -13,7 +13,9 @@
     "env": {
       "NODE_ENV": "production",
       "ZO_CLIENT_IDENTITY_TOKEN": "none",
-      "VITE_ZO_SITE_DEMO_VARIANT": "blank"
+      "VITE_ZO_SITE_DEMO_VARIANT": "prompts"
     }
   }
 }
+
+

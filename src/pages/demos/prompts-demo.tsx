@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, Loader2, X, Pen, ChevronDown, Filter, Save, Tag, Layers, Plus } from "lucide-react";
+import { Search, Loader2, X, Pen, ChevronDown, Filter, Save, Tag, Layers, Plus, Settings, Trash2, RefreshCw } from "lucide-react";
 import { MarkdownContent } from "@/components/ui/markdown-content";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -15,6 +15,21 @@ import {
 } from "@/components/ui/select";
 import { Toaster, toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Type definitions
 interface Prompt {
@@ -26,6 +41,20 @@ interface Prompt {
   category: string;
   emojis: string[];
   tool: boolean;
+}
+
+interface BatchPreviewResponse {
+  op: string;
+  totalFiles: number;
+  matchedFiles: number;
+  changes: Array<{
+    path: string;
+    filename: string;
+    before: Record<string, any>;
+    after: Record<string, any>;
+  }>;
+  targetExists: boolean;
+  conflictingPaths?: string[];
 }
 
 export default function PromptsDemo() {
@@ -42,13 +71,43 @@ export default function PromptsDemo() {
   const [contentLoading, setContentLoading] = useState(false);
   const [isTagsExpanded, setIsTagsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState({
-    description: "",
-    category: "",
-    tags: [] as string[],
-  });
-  const [newCategoryInput, setNewCategoryInput] = useState("");
+
+  // Management Modal State
+  const [managementModalOpen, setManagementModalOpen] = useState(false);
+  const [managementTab, setManagementTab] = useState<"categories" | "tags">("categories");
+  const [previewData, setPreviewData] = useState<BatchPreviewResponse | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [applyLoading, setApplyLoading] = useState(false);
+  const [renameFrom, setRenameFrom] = useState("");
+  const [renameTo, setRenameTo] = useState("");
+  const [deleteValue, setDeleteValue] = useState("");
+  // Type definitions for batch operations
+  interface ConflictInfo {
+    existingPrompt: Prompt;
+    targetExists: boolean;
+  }
+
+  interface EditForm {
+    mode: "edit" | "add";
+    type: "category" | "tag";
+    name?: string;
+    description?: string;
+    category?: string;
+    tags?: string[];
+  }
+
+
+  // Conflict resolution state for batch operations
+  const [showMergeDialog, setShowMergeDialog] = useState(false);
+  const [conflictInfo, setConflictInfo] = useState<ConflictInfo | null>(null);
+  const [mergeAction, setMergeAction] = useState<"merge" | "different" | null>(null);
+  const [mergeNewName, setMergeNewName] = useState("");
+
+  // Form state for add/edit metadata
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editForm, setEditForm] = useState<EditForm | null>(null);
   const [newTagInput, setNewTagInput] = useState("");
+  const [newCategoryInput, setNewCategoryInput] = useState("");
 
   // Load prompts from API
   useEffect(() => {
@@ -122,6 +181,9 @@ export default function PromptsDemo() {
   const handlePromptSelect = async (prompt: Prompt) => {
     setSelectedPrompt(prompt);
     setEditForm({
+      mode: "edit" as const,
+      type: "category" as const,
+      name: "",
       description: prompt.description,
       category: prompt.category || "Uncategorized",
       tags: [...prompt.tags],
@@ -187,7 +249,7 @@ export default function PromptsDemo() {
     if (newCategoryInput.trim() && !categories.includes(newCategoryInput.trim())) {
       const newCat = newCategoryInput.trim();
       setCategories(prev => [...prev, newCat].sort());
-      setEditForm(prev => ({...prev, category: newCat}));
+      setEditForm(prev => prev ? {...prev, category: newCat} : prev);
       setNewCategoryInput("");
       toast.success(`Category "${newCat}" created`);
     }
@@ -195,23 +257,103 @@ export default function PromptsDemo() {
 
   // Toggle tag in edit form
   const toggleEditTag = (tag: string) => {
-    setEditForm(prev => ({
-      ...prev,
-      tags: prev.tags.includes(tag) ? prev.tags.filter(t => t !== tag) : [...prev.tags, tag]
-    }));
+    setEditForm(prev => {
+      if (!prev || !prev.tags) return prev;
+      return {
+        ...prev,
+        tags: prev.tags.includes(tag) ? prev.tags.filter(t => t !== tag) : [...prev.tags, tag]
+      };
+    });
   };
 
   // Add new tag
   const handleAddTag = () => {
-    if (newTagInput.trim() && !editForm.tags.includes(newTagInput.trim())) {
+    if (newTagInput.trim() && !(editForm?.tags ?? []).includes(newTagInput.trim())) {
       const newTag = newTagInput.trim();
-      setEditForm(prev => ({
-        ...prev,
-        tags: [...prev.tags, newTag].sort()
-      }));
+      setEditForm(prev => {
+        if (!prev || !prev.tags) return prev;
+        return {
+          ...prev,
+          tags: [...prev.tags, newTag].sort()
+        };
+      });
       setNewTagInput("");
       toast.success(`Tag "${newTag}" added`);
     }
+  };
+
+  // Batch Operation Handlers
+  const handleBatchPreview = async (op: string, params: Record<string, any>) => {
+    setPreviewLoading(true);
+    setPreviewData(null);
+    try {
+      const response = await fetch("/api/prompts/batch/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ op, ...params }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setPreviewData(data);
+        if (data.targetExists) {
+          setShowMergeDialog(true);
+        }
+      } else {
+        toast.error("Failed to generate preview");
+      }
+    } catch (error) {
+      console.error("Preview error:", error);
+      toast.error("An error occurred during preview");
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleBatchApply = async () => {
+    if (!previewData) return;
+    setApplyLoading(true);
+    try {
+      const response = await fetch("/api/prompts/batch/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          op: previewData.op,
+          from: renameFrom,
+          to: renameTo,
+          value: deleteValue,
+          merge: mergeAction === "merge"
+        }),
+      });
+      if (response.ok) {
+        toast.success(`Succesfully updated ${previewData.matchedFiles} files`);
+        setManagementModalOpen(false);
+        setPreviewData(null);
+        setRenameFrom("");
+        setRenameTo("");
+        setDeleteValue("");
+        // Refresh prompts
+        window.location.reload();
+      } else {
+        toast.error("Failed to apply batch operation");
+      }
+    } catch (error) {
+      console.error("Apply error:", error);
+      toast.error("An error occurred while applying changes");
+    } finally {
+      setApplyLoading(false);
+      setShowMergeDialog(false);
+      setMergeAction(null);
+    }
+  };
+
+  const handleRename = () => {
+    const op = managementTab === "categories" ? "category_rename" : "tag_rename";
+    handleBatchPreview(op, { from: renameFrom, to: renameTo });
+  };
+
+  const handleDelete = () => {
+    const op = managementTab === "categories" ? "category_delete" : "tag_delete";
+    handleBatchPreview(op, { value: deleteValue });
   };
 
   return (
@@ -221,9 +363,19 @@ export default function PromptsDemo() {
         <header className="mb-10 space-y-6">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
-              <h1 className="text-4xl font-extrabold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent dark:from-blue-400 dark:to-indigo-400">
-                Prompts Gallery
-              </h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-4xl font-extrabold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent dark:from-blue-400 dark:to-indigo-400">
+                  Prompts Gallery
+                </h1>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="rounded-full h-10 w-10 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                  onClick={() => setManagementModalOpen(true)}
+                >
+                  <Settings className="h-6 w-6" />
+                </Button>
+              </div>
               <p className="mt-2 text-lg text-slate-500 dark:text-slate-400">
                 A beautiful mirror of your saved knowledge
               </p>
@@ -403,7 +555,7 @@ export default function PromptsDemo() {
                   </CardDescription>
                   <div className="flex flex-wrap gap-1.5 mt-auto">
                     {prompt.tags.slice(0, 3).map((tag) => (
-                      <span key={tag} className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800/50 px-1.5 py-0.5 rounded">
+                      <span key={tag} className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/50 px-1.5 py-0.5 rounded">
                         #{tag}
                       </span>
                     ))}
@@ -494,9 +646,9 @@ export default function PromptsDemo() {
                           <div className="flex-1 min-h-[400px]">
                             <label className="text-sm font-medium mb-1.5 block">Description</label>
                             <Textarea
-                              value={editForm.description}
+                              value={(editForm?.description ?? "")}
                               onChange={(e) =>
-                                setEditForm({ ...editForm, description: e.target.value })
+                                setEditForm(prev => prev ? {...prev, description: e.target.value} : null)
                               }
                               className="h-full min-h-[400px] resize-none font-mono text-sm leading-relaxed"
                               placeholder="Enter a description..."
@@ -520,8 +672,8 @@ export default function PromptsDemo() {
                       {isEditing ? (
                         <div className="space-y-3">
                           <Select
-                            value={editForm.category}
-                            onValueChange={(val) => setEditForm({...editForm, category: val})}
+                            value={(editForm?.category ?? "")}
+                            onValueChange={(val) => setEditForm(prev => prev ? {...prev, category: val} : null)}
                           >
                             <SelectTrigger className="w-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
                               <SelectValue placeholder="Select category" />
@@ -572,7 +724,7 @@ export default function PromptsDemo() {
                           <>
                             {/* Selected Tags */}
                             <div className="flex flex-wrap gap-2 mb-2">
-                              {editForm.tags.map((tag) => (
+                              {(editForm?.tags ?? []).map((tag) => (
                                 <Badge key={tag} variant="secondary" className="px-2 py-1 gap-1 pr-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
                                   {tag}
                                   <button
@@ -616,7 +768,7 @@ export default function PromptsDemo() {
                                 Add Existing Tags
                               </label>
                               <div className="flex flex-wrap gap-1.5 p-3 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 max-h-32 overflow-y-auto custom-scrollbar">
-                                {allTags.filter(t => !editForm.tags.includes(t)).map((tag) => (
+                                {allTags.filter(t => !(editForm?.tags ?? []).includes(t)).map((tag) => (
                                   <Badge 
                                     key={tag} 
                                     variant="outline" 
@@ -626,7 +778,7 @@ export default function PromptsDemo() {
                                     + {tag}
                                   </Badge>
                                 ))}
-                                {allTags.filter(t => !editForm.tags.includes(t)).length === 0 && (
+                                {allTags.filter(t => !(editForm?.tags ?? []).includes(t)).length === 0 && (
                                   <span className="text-xs text-slate-400 italic p-1">All tags selected</span>
                                 )}
                               </div>
@@ -677,9 +829,306 @@ export default function PromptsDemo() {
           </div>
         )}
       </div>
+
+      {/* Global Metadata Management Modal */}
+      <Dialog open={managementModalOpen} onOpenChange={setManagementModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-slate-200 dark:border-slate-800">
+          <DialogHeader className="px-6 pt-6 pb-2">
+            <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+              <Settings className="h-6 w-6 text-blue-500" />
+              Manage Metadata
+            </DialogTitle>
+            <DialogDescription>
+              Batch update or delete categories and tags across all your prompt files.
+            </DialogDescription>
+          </DialogHeader>
+
+          <Tabs 
+            value={managementTab} 
+            onValueChange={(v) => setManagementTab(v as "categories" | "tags")}
+            className="flex-1 flex flex-col overflow-hidden"
+          >
+            <div className="px-6">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="categories" className="gap-2">
+                  <Layers className="h-4 w-4" />
+                  Categories
+                </TabsTrigger>
+                <TabsTrigger value="tags" className="gap-2">
+                  <Tag className="h-4 w-4" />
+                  Tags
+                </TabsTrigger>
+              </TabsList>
+            </div>
+
+            <div className="flex-1 overflow-y-auto min-h-0 px-6 py-4 custom-scrollbar">
+              {/* Active Action UI (Rename/Delete Inputs) */}
+              {(renameFrom || deleteValue) && (
+                <div className="mb-6 p-4 rounded-2xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/50 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-bold text-blue-800 dark:text-blue-300 flex items-center gap-2">
+                       {renameFrom ? (
+                         <>
+                           <Pen className="h-4 w-4" />
+                           Rename {managementTab === "categories" ? "Category" : "Tag"}
+                         </>
+                       ) : (
+                         <>
+                           <Trash2 className="h-4 w-4" />
+                           Delete {managementTab === "categories" ? "Category" : "Tag"}
+                         </>
+                       )}
+                    </h4>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-6 w-6 rounded-full hover:bg-white dark:hover:bg-slate-800"
+                      onClick={() => {
+                        setRenameFrom("");
+                        setRenameTo("");
+                        setDeleteValue("");
+                        setPreviewData(null);
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  {renameFrom ? (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase">From</label>
+                          <Input value={renameFrom} disabled className="h-9 bg-white/50 dark:bg-slate-900/50" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase">To</label>
+                          <Input 
+                            value={renameTo} 
+                            onChange={(e) => setRenameTo(e.target.value)}
+                            className="h-9 bg-white dark:bg-slate-900" 
+                            placeholder="New name..."
+                          />
+                        </div>
+                      </div>
+                      <Button 
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white" 
+                        disabled={previewLoading || !renameTo.trim() || renameTo === renameFrom}
+                        onClick={handleRename}
+                      >
+                        {previewLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Preview Changes"}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <Alert className="bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30">
+                        <AlertDescription className="text-red-700 dark:text-red-400 text-xs">
+                          {managementTab === "categories" 
+                            ? `Are you sure? All prompts in "${deleteValue}" will be moved to "Uncategorized".`
+                            : `Are you sure? This tag will be removed from all affected prompts.`}
+                        </AlertDescription>
+                      </Alert>
+                      <Button 
+                        variant="destructive"
+                        className="w-full"
+                        disabled={previewLoading}
+                        onClick={handleDelete}
+                      >
+                        {previewLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Preview Deletion"}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Preview Results */}
+              {previewData && (
+                <div className="mb-6 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">Preview Changes</h4>
+                    <Badge variant="outline" className="text-xs font-mono">{previewData.matchedFiles} Files Affected</Badge>
+                  </div>
+                  
+                  <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 p-2 space-y-1 custom-scrollbar">
+                    {previewData.changes.map((change, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                        <span className="text-xs font-mono truncate max-w-[200px]">{change.filename}</span>
+                        <div className="flex items-center gap-2 text-[10px]">
+                          {renameFrom ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-slate-400 line-through">{renameFrom}</span>
+                              <ChevronDown className="h-3 w-3 -rotate-90 text-blue-500" />
+                              <span className="text-blue-600 dark:text-blue-400 font-bold">{renameTo}</span>
+                            </div>
+                          ) : (
+                            <Badge variant="outline" className="text-red-500 h-5 px-1 font-bold">REMOVED</Badge>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {previewData.changes.length === 0 && (
+                      <div className="text-center py-4 text-xs text-slate-400">No matching files found.</div>
+                    )}
+                  </div>
+
+                  <Button 
+                    className="w-full bg-green-600 hover:bg-green-700 text-white"
+                    onClick={handleBatchApply}
+                    disabled={applyLoading || previewData.matchedFiles === 0}
+                  >
+                    {applyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Apply Changes Now"}
+                  </Button>
+                </div>
+              )}
+
+              <TabsContent value="categories" className="mt-0 space-y-4">
+                <div className="grid gap-3">
+                  {categories.length === 0 ? (
+                    <div className="text-center py-10 text-slate-400 italic bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+                      No categories found
+                    </div>
+                  ) : (
+                    categories.map((cat) => (
+                      <div key={cat} className="flex items-center justify-between p-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-800 transition-colors group">
+                        <span className="font-medium text-slate-700 dark:text-slate-200">{cat}</span>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-slate-400 hover:text-blue-600"
+                            onClick={() => {
+                              setRenameFrom(cat);
+                              setRenameTo(cat);
+                              setPreviewData(null);
+                            }}
+                          >
+                            <Pen className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-slate-400 hover:text-red-500"
+                            onClick={() => {
+                              setDeleteValue(cat);
+                              setPreviewData(null);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="tags" className="mt-0 space-y-4">
+                <div className="grid gap-3">
+                  {allTags.length === 0 ? (
+                    <div className="text-center py-10 text-slate-400 italic bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+                      No tags found
+                    </div>
+                  ) : (
+                    allTags.map((tag) => (
+                      <div key={tag} className="flex items-center justify-between p-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-800 transition-colors group">
+                        <span className="font-medium text-slate-700 dark:text-slate-200">#{tag}</span>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-slate-400 hover:text-blue-600"
+                            onClick={() => {
+                              setRenameFrom(tag);
+                              setRenameTo(tag);
+                              setPreviewData(null);
+                            }}
+                          >
+                            <Pen className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-slate-400 hover:text-red-500"
+                            onClick={() => {
+                              setDeleteValue(tag);
+                              setPreviewData(null);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </TabsContent>
+            </div>
+          </Tabs>
+
+          <DialogFooter className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 shrink-0">
+            <Button variant="outline" onClick={() => setManagementModalOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Merge Confirmation Dialog */}
+      <Dialog open={showMergeDialog} onOpenChange={setShowMergeDialog}>
+        <DialogContent className="max-w-md bg-white dark:bg-slate-900">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 text-orange-500" />
+              Items Merge Conflict
+            </DialogTitle>
+            <DialogDescription>
+              A {managementTab === "categories" ? "category" : "tag"} named "<strong>{renameTo}</strong>" already exists. How would you like to proceed?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <Button 
+              className="w-full justify-start h-auto p-4 gap-4 bg-slate-50 hover:bg-blue-50 dark:bg-slate-800 dark:hover:bg-blue-900/20 border border-slate-200 dark:border-slate-800 hover:border-blue-400"
+              variant="ghost"
+              onClick={() => {
+                setMergeAction("merge");
+                setShowMergeDialog(false);
+              }}
+            >
+              <div className="flex flex-col items-start gap-1">
+                <span className="font-bold text-slate-900 dark:text-slate-100">Merge into existing</span>
+                <span className="text-xs text-slate-500">Combine all affected prompts into the existing "{renameTo}" item.</span>
+              </div>
+            </Button>
+            <Button 
+              className="w-full justify-start h-auto p-4 gap-4 bg-slate-50 hover:bg-orange-50 dark:bg-slate-800 dark:hover:bg-orange-900/20 border border-slate-200 dark:border-slate-800 hover:border-orange-400"
+              variant="ghost"
+              onClick={() => {
+                setShowMergeDialog(false);
+                setRenameTo("");
+              }}
+            >
+              <div className="flex flex-col items-start gap-1">
+                <span className="font-bold text-slate-900 dark:text-slate-100">Choose a different name</span>
+                <span className="text-xs text-slate-500">Cancel this rename and enter a unique name instead.</span>
+              </div>
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowMergeDialog(false)}>Cancel</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
+
+
+
+
+
+
+
+
+
+
 
 
 

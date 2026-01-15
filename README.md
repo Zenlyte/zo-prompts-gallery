@@ -13,6 +13,9 @@ A beautiful, searchable, and categorized gallery for your Zo saved prompts. Buil
 - **📱 Responsive**: Works great on desktop and mobile
 - **✏️ Edit Prompts**: Quick access to edit prompt metadata inline
 - **🎯 Quick View**: Pop-up modal to preview prompt content without leaving page
+- **⚙️ Batch Management**: Global category and tag management across all prompts with bulk operations
+- **🔀 Conflict Resolution**: Smart handling when renaming/moving items with existing names
+- **👀 Live Preview**: Preview changes before applying batch operations
 
 ## 📦 Installation
 
@@ -35,8 +38,11 @@ src/components/ui/dialog.tsx
 src/components/ui/popover.tsx
 src/components/ui/command.tsx
 src/components/ui/markdown-content.tsx
+src/components/ui/alert.tsx
+src/components/ui/scroll-area.tsx
+src/components/ui/tabs.tsx
 scripts/categorize-prompts.ts
-server.ts (update your existing with the prompts endpoints)
+server.ts (update your existing with prompts endpoints)
 ```
 
 ## 🚀 Setup
@@ -44,7 +50,7 @@ server.ts (update your existing with the prompts endpoints)
 1. **Install Dependencies**:
 ```bash
 bun add marked gray-matter
-bunx --bun shadcn@latest add dialog popover command
+bunx --bun shadcn@latest add dialog popover command tabs scroll-area alert
 ```
 
 2. **Update `zosite.json`**:
@@ -63,17 +69,18 @@ bun scripts/categorize-prompts.ts
 
 This will auto-categorize your existing prompts in `/home/workspace/Prompts` into logical groups.
 
-4. **Start the Site**:
+4. **Start Site**:
 Use the Zo UI to start your site, then visit the preview URL.
 
 ## 📁 How It Works
 
 ### Backend (`server.ts`)
 
-The site includes two API endpoints:
+The site includes API endpoints:
 
 - **`GET /api/prompts`**: Scans `/home/workspace/Prompts` directory and returns all `.prompt.md` files with metadata (title, description, tags, category, emojis)
-- **`POST /api/prompts/update`**: Updates a prompt file's metadata (category, description) while preserving content
+- **`POST /api/prompts/batch/preview`**: Preview bulk operations (rename/delete categories or tags) before applying
+- **`POST /api/prompts/batch/apply`**: Apply bulk operations to all matching prompt files with conflict resolution
 
 ### Frontend (`src/pages/demos/prompts-demo.tsx`)
 
@@ -82,6 +89,11 @@ The site includes two API endpoints:
 - Shows a beautiful grid of prompt cards
 - Click any card to open a modal with full content
 - Edit mode allows updating category and description directly
+- **Gear icon** (⚙️) in header opens management modal for batch operations
+- Manage categories: rename, delete, or merge existing categories
+- Manage tags: rename or delete existing tags
+- Preview all changes before applying them
+- Conflict resolution when target names already exist
 
 ## 🎨 Categories
 
@@ -181,4 +193,5 @@ Built with:
 ---
 
 Made with ❤️ for the Zo Community
+
 

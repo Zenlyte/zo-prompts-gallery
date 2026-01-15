@@ -137,6 +137,236 @@ app.get("/api/prompts/raw", async (c) => {
   }
 });
 
+// Batch operations for global category/tag management
+app.post("/api/prompts/batch/preview", async (c) => {
+  const body = await c.req.json();
+  const { op, from, to, value } = body;
+
+  const validOps = ["category_rename", "category_delete", "tag_rename", "tag_delete"];
+  if (!op || !validOps.includes(op)) {
+    return c.json({ error: "Invalid operation" }, 400);
+  }
+
+  // Validate required fields
+  if ((op === "category_rename" || op === "tag_rename") && (!from || !to)) {
+    return c.json({ error: "from and to are required for rename operations" }, 400);
+  }
+  if ((op === "category_delete" || op === "tag_delete") && !value) {
+    return c.json({ error: "value is required for delete operations" }, 400);
+  }
+
+  const promptsDir = "/home/workspace/Prompts";
+  const norm = (s: string) => s.trim().toLowerCase();
+
+  try {
+    const glob = new Bun.Glob("*.prompt.md");
+    const filenames = [];
+    for await (const file of glob.scan({ cwd: promptsDir, onlyFiles: true })) {
+      filenames.push(file);
+    }
+
+    const changes: Array<{
+      path: string;
+      filename: string;
+      before: Record<string, any>;
+      after: Record<string, any>;
+    }> = [];
+    const matchedFiles: string[] = [];
+
+    for (const filename of filenames) {
+      const abs = `${promptsDir}/${filename}`;
+      const file = Bun.file(abs);
+      const content = await file.text();
+      const parsed = matter(content);
+      const before = { ...parsed.data };
+
+      let willChange = false;
+      const after = { ...parsed.data };
+
+      switch (op) {
+        case "category_rename":
+          if (norm(before.category || "") === norm(from)) {
+            after.category = to;
+            willChange = true;
+          }
+          break;
+
+        case "category_delete":
+          if (norm(before.category || "") === norm(value)) {
+            after.category = "Uncategorized";
+            willChange = true;
+          }
+          break;
+
+        case "tag_rename":
+          if (before.tags && Array.isArray(before.tags)) {
+            after.tags = before.tags.map((tag: string) =>
+              norm(tag) === norm(from) ? to : tag
+            );
+            if (JSON.stringify(before.tags) !== JSON.stringify(after.tags)) {
+              willChange = true;
+            }
+          }
+          break;
+
+        case "tag_delete":
+          if (before.tags && Array.isArray(before.tags)) {
+            after.tags = before.tags.filter(
+              (tag: string) => norm(tag) !== norm(value)
+            );
+            if (JSON.stringify(before.tags) !== JSON.stringify(after.tags)) {
+              willChange = true;
+            }
+          }
+          break;
+      }
+
+      if (willChange) {
+        changes.push({
+          path: abs,
+          filename,
+          before: { category: before.category, tags: before.tags },
+          after: { category: after.category, tags: after.tags },
+        });
+        matchedFiles.push(abs);
+      }
+    }
+
+    // Check for target conflict (for rename operations)
+    let targetExists = false;
+    let conflictingPaths: string[] = [];
+
+    if (op === "category_rename") {
+      targetExists = changes.some((ch) => norm(ch.after.category || "") === norm(to));
+      conflictingPaths = changes
+        .filter((ch) => norm(ch.after.category || "") === norm(to) && norm(ch.before.category || "") !== norm(from))
+        .map((ch) => ch.path);
+    } else if (op === "tag_rename") {
+      targetExists = changes.some((ch) =>
+        ch.after.tags?.some((tag: string) => norm(tag) === norm(to)) &&
+        !ch.before.tags?.some((tag: string) => norm(tag) === norm(from))
+      );
+      conflictingPaths = changes
+        .filter((ch) =>
+          ch.after.tags?.some((tag: string) => norm(tag) === norm(to)) &&
+          !ch.before.tags?.some((tag: string) => norm(tag) === norm(from))
+        )
+        .map((ch) => ch.path);
+    }
+
+    return c.json({
+      op,
+      totalFiles: filenames.length,
+      matchedFiles: matchedFiles.length,
+      changes,
+      targetExists,
+      conflictingPaths: conflictingPaths.length > 0 ? conflictingPaths : undefined,
+    });
+  } catch (err) {
+    console.error("Error in batch preview:", err);
+    return c.json(
+      { error: err instanceof Error ? err.message : "Failed to preview changes" },
+      500
+    );
+  }
+});
+
+app.post("/api/prompts/batch/apply", async (c) => {
+  const body = await c.req.json();
+  const { op, from, to, value } = body;
+
+  const validOps = ["category_rename", "category_delete", "tag_rename", "tag_delete"];
+  if (!op || !validOps.includes(op)) {
+    return c.json({ error: "Invalid operation" }, 400);
+  }
+
+  const promptsDir = "/home/workspace/Prompts";
+  const norm = (s: string) => s.trim().toLowerCase();
+
+  try {
+    const glob = new Bun.Glob("*.prompt.md");
+    const filenames = [];
+    for await (const file of glob.scan({ cwd: promptsDir, onlyFiles: true })) {
+      filenames.push(file);
+    }
+
+    let updated = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+
+    for (const filename of filenames) {
+      const abs = `${promptsDir}/${filename}`;
+      try {
+        const file = Bun.file(abs);
+        const content = await file.text();
+        const parsed = matter(content);
+
+        let willChange = false;
+        const newData = { ...parsed.data };
+
+        switch (op) {
+          case "category_rename":
+            if (norm(parsed.data.category || "") === norm(from)) {
+              newData.category = to;
+              willChange = true;
+            }
+            break;
+
+          case "category_delete":
+            if (norm(parsed.data.category || "") === norm(value)) {
+              newData.category = "Uncategorized";
+              willChange = true;
+            }
+            break;
+
+          case "tag_rename":
+            if (parsed.data.tags && Array.isArray(parsed.data.tags)) {
+              newData.tags = parsed.data.tags.map((tag: string) =>
+                norm(tag) === norm(from) ? to : tag
+              );
+              if (JSON.stringify(parsed.data.tags) !== JSON.stringify(newData.tags)) {
+                willChange = true;
+              }
+            }
+            break;
+
+          case "tag_delete":
+            if (parsed.data.tags && Array.isArray(parsed.data.tags)) {
+              newData.tags = parsed.data.tags.filter(
+                (tag: string) => norm(tag) !== norm(value)
+              );
+              if (JSON.stringify(parsed.data.tags) !== JSON.stringify(newData.tags)) {
+                willChange = true;
+              }
+            }
+            break;
+        }
+
+        if (willChange) {
+          const newContent = matter.stringify(parsed.content, newData);
+          await Bun.write(abs, newContent);
+          updated++;
+        } else {
+          skipped++;
+        }
+      } catch (err) {
+        errors.push(`${filename}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    return c.json({
+      updated,
+      skipped,
+      errors: errors.length > 0 ? errors : undefined,
+    });
+  } catch (err) {
+    console.error("Error in batch apply:", err);
+    return c.json(
+      { error: err instanceof Error ? err.message : "Failed to apply changes" },
+      500
+    );
+  }
+});
 
 // Event registration endpoints (namespaced under _zo to avoid conflicts)
 app.get("/api/_zo/demo/registrations", (c) => {
@@ -412,6 +642,7 @@ function fallbackEmojisFromTags(tags: string[]): string[] {
 
   return pick;
 }
+
 
 
 

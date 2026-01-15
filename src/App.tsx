@@ -6,6 +6,7 @@ import EventDemo from "./pages/demos/event-demo";
 import SlidesDemo from "./pages/demos/slides-demo";
 import DataDemo from "./pages/demos/data-demo";
 import MarketingDemo from "./pages/demos/marketing-demo";
+import PromptsDemo from "./pages/demos/prompts-demo";
 import { ThemeProvider } from "@/components/theme-provider";
 
 /**
@@ -23,6 +24,7 @@ const DEMO_COMPONENTS = {
   slides: SlidesDemo,
   data: DataDemo,
   marketing: MarketingDemo,
+  prompts: PromptsDemo,
 } as const;
 
 type Variant = keyof typeof DEMO_COMPONENTS;
@@ -43,8 +45,10 @@ export default function App() {
           <Route path="/demos/slides" element={<SlidesDemo />} />
           <Route path="/demos/data" element={<DataDemo />} />
           <Route path="/demos/marketing" element={<MarketingDemo />} />
+          <Route path="/demos/prompts" element={<PromptsDemo />} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>
   );
 }
+
