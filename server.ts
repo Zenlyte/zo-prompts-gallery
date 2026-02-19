@@ -17,27 +17,27 @@ const mode: Mode =
  */
 app.get("/api/hello-zo", (c) => c.json({ msg: "Hello from Zo" }));
 
-app.get("/api/prompts", async (c) => {
-  const promptsDir = "/home/workspace/Prompts";
-  console.log("Scanning prompts directory:", promptsDir);
+app.get("/api/skills", async (c) => {
+  const skillsDir = "/home/workspace/Skills";
+  console.log("Scanning Skills directory:", skillsDir);
   
   try {
-    const glob = new Bun.Glob("*.prompt.md");
+    const glob = new Bun.Glob("*.SKILL.md");
     const filenames = [];
-    for await (const file of glob.scan({ cwd: promptsDir, onlyFiles: true })) {
+    for await (const file of glob.scan({ cwd: skillsDir, onlyFiles: true })) {
       filenames.push(file);
     }
     
     console.log("Found filenames:", filenames.length);
 
     const promises = filenames.map(async (filename) => {
-      const abs = `${promptsDir}/${filename}`;
+      const abs = `${skillsDir}/${filename}`;
       const file = Bun.file(abs);
       const content = await file.text();
       
       const { data } = matter(content);
       
-      const title = data.title || filename.replace(".prompt.md", "");
+      const title = data.title || filename.replace(".SKILL.md", "");
       const description = data.description || "";
       const tags = data.tags || [];
       const tool = data.tool || false;
@@ -84,19 +84,19 @@ app.get("/api/prompts", async (c) => {
       };
     });
 
-    const prompts = await Promise.all(promises);
-    console.log("Processed prompts:", prompts.length);
-    return c.json({ prompts });
+    const skills = await Promise.all(promises);
+    console.log("Processed skills:", skills.length);
+    return c.json({ skills });
   } catch (err) {
-    console.error("Error reading prompts:", err);
+    console.error("Error reading skills:", err);
     return c.json(
-      { error: err instanceof Error ? err.message : "Failed to read prompts" },
+      { error: err instanceof Error ? err.message : "Failed to read skills" },
       500
     );
   }
 });
 
-app.post("/api/prompts/update", async (c) => {
+app.post("/api/skills/update", async (c) => {
   try {
     const { path, tags, category, description, emojis } = await c.req.json();
     
@@ -125,9 +125,9 @@ app.post("/api/prompts/update", async (c) => {
   }
 });
 
-app.get("/api/prompts/raw", async (c) => {
+app.get("/api/skills/raw", async (c) => {
   const path = c.req.query("path") || "";
-  if (!path.startsWith("/home/workspace/Prompts/") || !path.endsWith(".prompt.md")) {
+  if (!path.startsWith("/home/workspace/Skills/") || !path.endsWith(".SKILL.md")) {
     return c.json({ error: "Invalid path" }, 400);
   }
   try {
@@ -140,7 +140,7 @@ app.get("/api/prompts/raw", async (c) => {
 });
 
 // Batch operations for global category/tag management
-app.post("/api/prompts/batch/preview", async (c) => {
+app.post("/api/skills/batch/preview", async (c) => {
   const body = await c.req.json();
   const { op, from, to, value } = body;
 
@@ -157,13 +157,13 @@ app.post("/api/prompts/batch/preview", async (c) => {
     return c.json({ error: "value is required for delete operations" }, 400);
   }
 
-  const promptsDir = "/home/workspace/Prompts";
+  const skillsDir = "/home/workspace/Skills";
   const norm = (s: string) => s.trim().toLowerCase();
 
   try {
-    const glob = new Bun.Glob("*.prompt.md");
+    const glob = new Bun.Glob("*.SKILL.md");
     const filenames = [];
-    for await (const file of glob.scan({ cwd: promptsDir, onlyFiles: true })) {
+    for await (const file of glob.scan({ cwd: skillsDir, onlyFiles: true })) {
       filenames.push(file);
     }
 
@@ -176,7 +176,7 @@ app.post("/api/prompts/batch/preview", async (c) => {
     const matchedFiles: string[] = [];
 
     for (const filename of filenames) {
-      const abs = `${promptsDir}/${filename}`;
+      const abs = `${skillsDir}/${filename}`;
       const file = Bun.file(abs);
       const content = await file.text();
       const parsed = matter(content);
@@ -273,7 +273,7 @@ app.post("/api/prompts/batch/preview", async (c) => {
   }
 });
 
-app.post("/api/prompts/batch/apply", async (c) => {
+app.post("/api/skills/batch/apply", async (c) => {
   const body = await c.req.json();
   const { op, from, to, value } = body;
 
@@ -282,13 +282,13 @@ app.post("/api/prompts/batch/apply", async (c) => {
     return c.json({ error: "Invalid operation" }, 400);
   }
 
-  const promptsDir = "/home/workspace/Prompts";
+  const skillsDir = "/home/workspace/Skills";
   const norm = (s: string) => s.trim().toLowerCase();
 
   try {
-    const glob = new Bun.Glob("*.prompt.md");
+    const glob = new Bun.Glob("*.SKILL.md");
     const filenames = [];
-    for await (const file of glob.scan({ cwd: promptsDir, onlyFiles: true })) {
+    for await (const file of glob.scan({ cwd: skillsDir, onlyFiles: true })) {
       filenames.push(file);
     }
 
@@ -297,7 +297,7 @@ app.post("/api/prompts/batch/apply", async (c) => {
     const errors: string[] = [];
 
     for (const filename of filenames) {
-      const abs = `${promptsDir}/${filename}`;
+      const abs = `${skillsDir}/${filename}`;
       try {
         const file = Bun.file(abs);
         const content = await file.text();

@@ -1,14 +1,14 @@
-# 🎨 Zo Prompts Gallery - Share Package
+# 🎨 Zo Skills Gallery - Share Package
 
 ## 📦 What's Ready to Share
 
-Your Prompts Gallery has been successfully packaged and published to GitHub!
+Your Skills Gallery has been successfully packaged and published to GitHub!
 
 ### 🌐 Repository
-**Public URL**: https://github.com/Zenlyte/zo-prompts-gallery
+**Public URL**: https://github.com/Zenlyte/zo-skills-gallery
 
 ### 📥 Direct Download
-**Release v1.0.0**: https://github.com/Zenlyte/zo-prompts-gallery/releases/tag/v1.0.0
+**Release v1.0.0**: https://github.com/Zenlyte/zo-skills-gallery/releases/tag/v1.0.0
 
 ---
 
@@ -21,43 +21,43 @@ Users can simply clone and run:
 ```bash
 # Clone the repository
 cd /home/workspace/Projects
-git clone https://github.com/Zenlyte/zo-prompts-gallery.git prompt-gallery
+git clone https://github.com/Zenlyte/zo-skills-gallery.git prompt-gallery
 
 # Install dependencies
 cd prompt-gallery
 bun install
 
-# Run setup script (installs deps + categorizes prompts)
+# Run setup script (installs deps + categorizes skills)
 chmod +x setup.sh
 ./setup.sh
 
 # Configure in Zo UI
 # 1. Open Zo Sites page
 # 2. Select prompt-gallery site
-# 3. Set VITE_ZO_SITE_DEMO_VARIANT to "prompts"
+# 3. Set VITE_ZO_SITE_DEMO_VARIANT to "skills"
 # 4. Start the site
 ```
 
 ### Method 2: Via Prompt File
 
 I've created an installer prompt at:
-`/home/workspace/Prompts/install-prompts-gallery.prompt.md`
+`/home/workspace/Skills/install-skills-gallery.SKILL.md`
 
 Share this file and users can run it directly in Zo chat with:
-> **@install-prompts-gallery**
+> **@install-skills-gallery**
 
 ---
 
 ## 📝 What's in the Package
 
 ### Files Included
-- **`src/pages/demos/prompts-demo.tsx`** - Main gallery UI component
+- **`src/pages/demos/skills-gallery.tsx`** - Main gallery UI component
 - **`src/components/ui/dialog.tsx`** - Modal dialog component
 - **`src/components/ui/popover.tsx`** - Popover dropdown component
 - **`src/components/ui/command.tsx`** - Command palette/search component
 - **`src/components/ui/markdown-content.tsx`** - Markdown renderer
-- **`scripts/categorize-prompts.ts`** - Auto-categorization script
-- **`server.ts`** - Updated with prompts API endpoints
+- **`scripts/categorize-skills.ts`** - Auto-categorization script
+- **`server.ts`** - Updated with skills API endpoints
 - **`README.md`** - Comprehensive documentation
 - **`LICENSE`** - MIT License
 - **`setup.sh`** - Quick setup automation script
@@ -73,13 +73,13 @@ Share this file and users can run it directly in Zo chat with:
 
 Use this when sharing with Zo community:
 
-> **🎨 Zo Prompts Gallery v1.0**
+> **🎨 Zo Skills Gallery v1.0**
 >
-> I've packaged up a beautiful, searchable gallery for your saved Zo prompts! Features include smart search, OR-logic tag filtering, auto-categorization, and a quick-view modal.
+> I've packaged up a beautiful, searchable gallery for your saved Zo skills! Features include smart search, OR-logic tag filtering, auto-categorization, and a quick-view modal.
 >
-> **📦 Install**: `git clone https://github.com/Zenlyte/zo-prompts-gallery && cd zo-prompts-gallery && bun install && chmod +x setup.sh && ./setup.sh`
+> **📦 Install**: `git clone https://github.com/Zenlyte/zo-skills-gallery && cd zo-skills-gallery && bun install && chmod +x setup.sh && ./setup.sh`
 >
-> **🔗 Repo**: https://github.com/Zenlyte/zo-prompts-gallery
+> **🔗 Repo**: https://github.com/Zenlyte/zo-skills-gallery
 >
 > Works with any Zo computer - no personal data or tokens needed!
 
@@ -117,7 +117,7 @@ git pull origin main
 
 ## 🏆 What Makes This Shareable
 
-✅ **No Personal Data** - References standard `/home/workspace/Prompts` path only
+✅ **No Personal Data** - References standard `/home/workspace/Skills` path only
 ✅ **Audit-able** - All code visible before running
 ✅ **One-Command Setup** - `./setup.sh` handles everything
 ✅ **Well-Documented** - README covers installation, customization, troubleshooting
@@ -140,11 +140,11 @@ git pull origin main
 
 Future additions you could make:
 
-- [ ] Export prompts to JSON/CSV
-- [ ] Import prompts from external sources
+- [ ] Export skills to JSON/CSV
+- [ ] Import skills from external sources
 - [ ] Theme customization (light/dark/custom)
 - [ ] Prompt templates library
-- [ ] Usage analytics (which prompts are most viewed)
+- [ ] Usage analytics (which skills are most viewed)
 - [ ] Batch operations (bulk categorize, bulk edit)
 
 ---

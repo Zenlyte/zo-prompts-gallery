@@ -1,9 +1,9 @@
 # Plan: Skills Gallery Refactor
 
-**Goal:** Transform the buggy prompts-demo component into a clean, working Skills Gallery that displays SKILL.md files from the Skills directory with metadata editing capabilities.
+**Goal:** Transform the buggy skills-gallery component into a clean, working Skills Gallery that displays SKILL.md files from the Skills directory with metadata editing capabilities.
 
 **Why refactor instead of fix:**
-- Current `prompts-demo.tsx` has 1190 lines with multiple syntax errors
+- Current `skills-gallery.tsx` has 1190 lines with multiple syntax errors
 - Multiple failed edit attempts have created broken JSX structure
 - Simpler to rebuild with correct architecture than debug existing code
 - Target: ~400-500 lines (60% reduction)
@@ -129,7 +129,7 @@ export default async (c) => {
 
 **Affected Files:**
 - Create: `src/pages/skills-gallery.tsx` (new file)
-- Delete: `src/pages/demos/prompts-demo.tsx` (broken file)
+- Delete: `src/pages/demos/skills-gallery.tsx` (broken file)
 
 **Component Structure:**
 
@@ -185,7 +185,7 @@ export default function SkillsGallery() {
 
 **Affected Files:**
 - Update: `src/App.tsx` (change route from `/demos/prompts` to `/skills`)
-- Update: `server.ts` (remove old `/api/prompts` endpoints if not needed)
+- Update: `server.ts` (remove old `/api/skills` endpoints if not needed)
 - Delete: `src/pages/demos/` directory (cleanup)
 
 **Changes:**
@@ -197,7 +197,7 @@ export default function SkillsGallery() {
    ```
 
 2. Remove broken prompts code:
-   - Delete `src/pages/demos/prompts-demo.tsx`
+   - Delete `src/pages/demos/skills-gallery.tsx`
    - Remove unused imports from App.tsx
 
 3. Test the complete flow:
@@ -236,9 +236,9 @@ export default function SkillsGallery() {
 
 ### Phase 3: Integration & Cleanup
 - [ ] Update App.tsx routing
-- [ ] Remove old prompts-demo.tsx
+- [ ] Remove old skills-gallery.tsx
 - [ ] Clean up unused imports
-- [ ] Remove old `/api/prompts` endpoints from server.ts
+- [ ] Remove old `/api/skills` endpoints from server.ts
 - [ ] Test complete user flow
 - [ ] Verify no console errors
 - [ ] Test responsive design

@@ -1,19 +1,19 @@
 {
-  "name": "prompt-gallery",
+  "name": "skills-gallery",
   "local_port": 57998,
   "entrypoint": "bun run dev",
   "env": {
-    "VITE_ZO_SITE_DEMO_VARIANT": "prompts"
+    "VITE_ZO_SITE_DEMO_VARIANT": "skills"
   },
   "publish": {
-    "label": "prompt-gallery",
+    "label": "skills-gallery",
     "type": "http",
     "entrypoint": "bun run prod",
     "published_port": 58155,
     "env": {
       "NODE_ENV": "production",
       "ZO_CLIENT_IDENTITY_TOKEN": "none",
-      "VITE_ZO_SITE_DEMO_VARIANT": "prompts"
+      "VITE_ZO_SITE_DEMO_VARIANT": "skills"
     }
   }
 }

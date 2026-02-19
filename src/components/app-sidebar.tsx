@@ -97,7 +97,7 @@ const data = {
       ],
     },
     {
-      title: "Prompts",
+      title: "Skills",
       icon: IconFileAi,
       url: "#",
       items: [

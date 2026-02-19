@@ -1,19 +1,19 @@
-# Zo Prompts Gallery 🎨
+# Zo Skills Gallery 🎨
 
-A beautiful, searchable, and categorized gallery for your Zo saved prompts. Built as a reusable Zo Site template.
+A beautiful, searchable, and categorized gallery for your Zo saved skills. Built as a reusable Zo Site template.
 
-![Prompts Gallery Preview](public/images/gallery-preview.png)
+![Skills Gallery Preview](public/images/gallery-preview.png)
 
 ## ✨ Features
 
-- **🔍 Smart Search**: Filter prompts by title, description, or content
+- **🔍 Smart Search**: Filter skills by title, description, or content
 - **🏷️ Tag Filtering**: Filter by tags with OR logic (any selected tag matches)
-- **📁 Categories**: Automatically categorize prompts into logical groups
+- **📁 Categories**: Automatically categorize skills into logical groups
 - **🎨 Modern UI**: Beautiful dark-mode friendly design with shadcn/ui components
 - **📱 Responsive**: Works great on desktop and mobile
-- **✏️ Edit Prompts**: Quick access to edit prompt metadata inline
+- **✏️ Edit Skills**: Quick access to edit prompt metadata inline
 - **🎯 Quick View**: Pop-up modal to preview prompt content without leaving page
-- **⚙️ Batch Management**: Global category and tag management across all prompts with bulk operations
+- **⚙️ Batch Management**: Global category and tag management across all skills with bulk operations
 - **🔀 Conflict Resolution**: Smart handling when renaming/moving items with existing names
 - **👀 Live Preview**: Preview changes before applying batch operations
 
@@ -33,7 +33,7 @@ bun install
 Copy these files to your existing Zo Site:
 
 ```
-src/pages/demos/prompts-demo.tsx
+src/pages/demos/skills-gallery.tsx
 src/components/ui/dialog.tsx
 src/components/ui/popover.tsx
 src/components/ui/command.tsx
@@ -41,8 +41,8 @@ src/components/ui/markdown-content.tsx
 src/components/ui/alert.tsx
 src/components/ui/scroll-area.tsx
 src/components/ui/tabs.tsx
-scripts/categorize-prompts.ts
-server.ts (update your existing with prompts endpoints)
+scripts/categorize-skills.ts
+server.ts (update your existing with skills endpoints)
 ```
 
 ## 🚀 Setup
@@ -57,17 +57,17 @@ bunx --bun shadcn@latest add dialog popover command tabs scroll-area alert
 ```json
 {
   "env": {
-    "VITE_ZO_SITE_DEMO_VARIANT": "prompts"
+    "VITE_ZO_SITE_DEMO_VARIANT": "skills"
   }
 }
 ```
 
 3. **Run Categorization Script**:
 ```bash
-bun scripts/categorize-prompts.ts
+bun scripts/categorize-skills.ts
 ```
 
-This will auto-categorize your existing prompts in `/home/workspace/Prompts` into logical groups.
+This will auto-categorize your existing skills in `/home/workspace/Skills` into logical groups.
 
 4. **Start Site**:
 Use the Zo UI to start your site, then visit the preview URL.
@@ -78,13 +78,13 @@ Use the Zo UI to start your site, then visit the preview URL.
 
 The site includes API endpoints:
 
-- **`GET /api/prompts`**: Scans `/home/workspace/Prompts` directory and returns all `.prompt.md` files with metadata (title, description, tags, category, emojis)
-- **`POST /api/prompts/batch/preview`**: Preview bulk operations (rename/delete categories or tags) before applying
-- **`POST /api/prompts/batch/apply`**: Apply bulk operations to all matching prompt files with conflict resolution
+- **`GET /api/skills`**: Scans `/home/workspace/Skills` directory and returns all `.SKILL.md` files with metadata (title, description, tags, category, emojis)
+- **`POST /api/skills/batch/preview`**: Preview bulk operations (rename/delete categories or tags) before applying
+- **`POST /api/skills/batch/apply`**: Apply bulk operations to all matching prompt files with conflict resolution
 
-### Frontend (`src/pages/demos/prompts-demo.tsx`)
+### Frontend (`src/pages/demos/skills-gallery.tsx`)
 
-- Fetches all prompts from `/api/prompts` on load
+- Fetches all skills from `/api/skills` on load
 - Provides search, tag filtering, and category filtering
 - Shows a beautiful grid of prompt cards
 - Click any card to open a modal with full content
@@ -97,7 +97,7 @@ The site includes API endpoints:
 
 ## 🎨 Categories
 
-The gallery organizes prompts into these default categories:
+The gallery organizes skills into these default categories:
 
 - **Productivity & Planning** - Task management, automation, organization
 - **Writing & Content** - Blog posts, essay writing, creative writing
@@ -112,7 +112,7 @@ The gallery organizes prompts into these default categories:
 
 ### Adding New Categories
 
-Edit `scripts/categorize-prompts.ts` to add or modify category mappings:
+Edit `scripts/categorize-skills.ts` to add or modify category mappings:
 
 ```typescript
 const categories: Record<string, string> = {
@@ -122,7 +122,7 @@ const categories: Record<string, string> = {
 
 Then run the script again:
 ```bash
-bun scripts/categorize-prompts.ts
+bun scripts/categorize-skills.ts
 ```
 
 ### Styling
@@ -133,7 +133,7 @@ The site uses Tailwind CSS 4. You can customize colors in:
 
 ## 📄 Prompt File Format
 
-Prompts should follow this frontmatter format:
+Skills should follow this frontmatter format:
 
 ```markdown
 ---
@@ -149,16 +149,16 @@ Your prompt content here...
 
 ## 🔧 Troubleshooting
 
-### Prompts Not Showing
+### Skills Not Showing
 
-1. Check that prompts are in `/home/workspace/Prompts`
-2. Ensure files end with `.prompt.md`
+1. Check that skills are in `/home/workspace/Skills`
+2. Ensure files end with `.SKILL.md`
 3. Check browser console for errors
-4. Verify API is working: `curl http://localhost:YOUR_PORT/api/prompts`
+4. Verify API is working: `curl http://localhost:YOUR_PORT/api/skills`
 
 ### Tags Not Filtering Correctly
 
-The gallery uses OR logic by default. If you want AND logic (must match ALL tags), edit the filter function in `src/pages/demos/prompts-demo.tsx`:
+The gallery uses OR logic by default. If you want AND logic (must match ALL tags), edit the filter function in `src/pages/demos/skills-gallery.tsx`:
 
 ```typescript
 // Change from:

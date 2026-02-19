@@ -1,2 +1,15 @@
 node_modules/
 dist/
+
+# Database files
+*.db
+*.db-journal
+
+# Environment files
+.env
+.env.*
+
+# Secrets
+*.secret
+*.key
+*.pem

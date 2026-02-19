@@ -1,7 +1,7 @@
 import { Glob } from "bun";
 import matter from "gray-matter";
 
-const PROMPTS_DIR = "/home/workspace/Prompts";
+const SKILLS_DIR = "/home/workspace/Skills";
 
 const CATEGORIES = {
   "Coding & Engineering": [
@@ -21,12 +21,12 @@ const CATEGORIES = {
   ]
 };
 
-async function categorizePrompts() {
+async function categorizeSkills() {
   const glob = new Glob("*.prompt.md");
   let updatedCount = 0;
 
-  for await (const file of glob.scan({ cwd: PROMPTS_DIR })) {
-    const filePath = `${PROMPTS_DIR}/${file}`;
+  for await (const file of glob.scan({ cwd: SKILLS_DIR })) {
+    const filePath = `${SKILLS_DIR}/${file}`;
     const fileContent = await Bun.file(filePath).text();
     const { data, content } = matter(fileContent);
 
@@ -67,8 +67,8 @@ async function categorizePrompts() {
     updatedCount++;
   }
 
-  console.log(`\nDone! Updated ${updatedCount} prompts.`);
+  console.log(`\nDone! Updated ${updatedCount} skills.`);
 }
 
-categorizePrompts();
+categorizeSkills();
 

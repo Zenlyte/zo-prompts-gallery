@@ -114,7 +114,7 @@ export function ManageLibraryModal({ open, onOpenChange, onUpdate }: ManageLibra
   };
 
   const handleDelete = async (name: string) => {
-    if (!confirm(`Are you sure you want to delete "${name}"? This will remove it from all prompts.`)) return;
+    if (!confirm(`Are you sure you want to delete "${name}"? This will remove it from all skills.`)) return;
     
     const type = activeTab;
     const toastId = toast.loading(`Deleting ${name}...`);

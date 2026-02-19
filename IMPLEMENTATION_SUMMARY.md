@@ -11,7 +11,7 @@
 - Phased implementation approach with unit tests at each phase
 
 ### 2. Frontend Implementation ✅
-- **File**: `src/pages/demos/prompts-gallery.tsx`
+- **File**: `src/pages/demos/skills-gallery.tsx`
 - Clean, reusable SkillsGallery component
 - Features:
   - Grid view of skills with metadata display
@@ -81,7 +81,7 @@ Updates skill metadata (category, tags, emojis):
 Projects/prompt-gallery/
 ├── src/
 │   ├── pages/demos/
-│   │   └── prompts-gallery.tsx       (Main component)
+│   │   └── skills-gallery.tsx       (Main component)
 │   ├── components/ui/                (shadcn/ui components)
 │   └── App.tsx                       (Router config)
 ├── server.ts                         (Backend API)
