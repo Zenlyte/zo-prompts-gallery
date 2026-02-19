@@ -576,12 +576,10 @@ export default function PromptsDemo() {
 
         {/* Improved Glassmorphism Modal */}
         {selectedPrompt && (
+        {selectedPrompt && (
           <div
             className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6"
             onClick={closeDialog}
-          >
-            {/* Backdrop with blur */}
-            <div className="absolute inset-0 bg-slate-950/30 backdrop-blur-sm transition-opacity" />
             
             {/* Modal Window */}
             <div
@@ -642,6 +640,75 @@ export default function PromptsDemo() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-slate-50/80 dark:bg-slate-950/50 rounded-2xl p-6 border border-slate-100 dark:border-slate-800">
                   {/* Left Column: Description */}
                   <div className="space-y-4">
+                    {/* Emoji Picker Section (EDIT MODE ONLY) */}
+                    {isEditing && (
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2 block flex items-center gap-2">
+                          Emojis
+                        </label>
+                        <div className="relative">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                            className="w-full justify-start h-auto py-3 px-4 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+                          >
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {((editForm?.emojis ?? []).length > 0 ? editForm.emojis : ["📝"]).map((emoji, idx) => (
+                                <span key={idx} className="text-2xl">{emoji}</span>
+                              ))}
+                              <span className="text-sm text-slate-400 ml-2">{((editForm?.emojis ?? []).length > 0 ? "Click to change (max 3)" : "Select emojis (max 3)")}</span>
+                            </div>
+                          </Button>
+                          {showEmojiPicker && (
+                            <div className="absolute z-50 mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-xl">
+                              <EmojiPicker
+                                onEmojiClick={(emojiData) => {
+                                  const emoji = emojiData.emoji;
+                                  setEditForm(prev => {
+                                    if (!prev) return prev;
+                                    const currentEmojis = prev.emojis ?? [];
+                                    if (currentEmojis.includes(emoji)) {
+                                      return { ...prev, emojis: currentEmojis.filter(e => e !== emoji) };
+                                    }
+                                    if (currentEmojis.length >= 3) {
+                                      toast.error("Maximum 3 emojis allowed");
+                                      return prev;
+                                    }
+                                    return { ...prev, emojis: [...currentEmojis, emoji] };
+                                  });
+                                }}
+                                height={350}
+                                width={320}
+                                previewConfig={{ showPreview: true }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                        {/* Selected Emojis Display */}
+                        {((editForm?.emojis ?? []).length > 0) && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {(editForm.emojis ?? []).map((emoji, idx) => (
+                              <Badge
+                                key={idx}
+                                variant="outline"
+                                className="text-lg px-2 py-1 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800"
+                                onClick={() => {
+                                  setEditForm(prev => {
+                                    if (!prev || !prev.emojis) return prev;
+                                    return {
+                                      ...prev,
+                                      emojis: prev.emojis.filter((_, i) => i !== idx)
+                                    };
+                                  });
+                                }}
+                              >
+                                {emoji}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+
                     <div>
                       <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2 block flex items-center gap-2">
                         Description
@@ -668,7 +735,7 @@ export default function PromptsDemo() {
                     </div>
                   </div>
 
-                  {/* Right Column: Category & Tags */}
+                  )/* Right Column: Category & Tags */}
                   <div className="space-y-6">
                     <div>
                       <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2 block flex items-center gap-2">
@@ -804,14 +871,34 @@ export default function PromptsDemo() {
                   </div>
                 </div>
 
+                {/* Prompt Body Section */}
+                <div className="pt-4 border-t border-slate-200/50 dark:border-slate-800/50">
+                  <div className="flex items-center justify-between mb-4">
+                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                      Prompt Body
+                    </label>
+                    <Badge variant="outline" className="text-[9px] font-mono text-slate-400">
+                      Markdown
+                    </Badge>
+                  </div>
+                  
+                  {contentLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+                    </div>
+                  ) : (
+                    <div className="bg-white/50 dark:bg-slate-950/30 rounded-xl p-6 border border-slate-100 dark:border-slate-800 max-h-[500px] overflow-y-auto overflow-x-hidden custom-scrollbar">
+                      <MarkdownContent content={promptContent} />
+                    </div>
+                  )}
+                </div>
 
               </div>
             </div>
           </div>
-        )}
       </div>
 
-      {/* Global Metadata Management Modal */}
+      // Global Metadata Management Modal
       <Dialog open={managementModalOpen} onOpenChange={setManagementModalOpen}>
         <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-slate-200 dark:border-slate-800">
           <DialogHeader className="px-6 pt-6 pb-2">
@@ -1095,37 +1182,9 @@ export default function PromptsDemo() {
           <DialogFooter>
             <Button variant="ghost" onClick={() => setShowMergeDialog(false)}>Cancel</Button>
           </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </main>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
